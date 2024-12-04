@@ -10,6 +10,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<NutritionData | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -24,6 +25,7 @@ export default function Home() {
 
   const handleCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
+    setImageLoaded(false);
     const selectedFile = event.target.files?.[0];
     
     if (selectedFile) {
@@ -34,6 +36,10 @@ export default function Home() {
         setError('Please select an image file');
       }
     }
+  };
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
   };
 
   const handleUpload = async () => {
@@ -124,6 +130,7 @@ export default function Home() {
                 src={capturedImage} 
                 alt="Food" 
                 className="w-full h-full object-cover"
+                onLoad={handleImageLoad}
               />
               <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/50 to-transparent">
                 <div className="flex justify-between items-center">
@@ -138,7 +145,7 @@ export default function Home() {
                   </Button>
                   <Button
                     onClick={handleUpload}
-                    disabled={uploading}
+                    disabled={uploading || !imageLoaded}
                     size="sm"
                     className="bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600"
                   >
@@ -147,6 +154,8 @@ export default function Home() {
                         <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
                         <span>Analyzing...</span>
                       </>
+                    ) : !imageLoaded ? (
+                      <span>Loading image...</span>
                     ) : (
                       <>
                         <span>Analyze</span>
@@ -248,13 +257,15 @@ export default function Home() {
               onClick={handleUpload}
               size="lg"
               className="bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600"
-              disabled={uploading}
+              disabled={uploading || !imageLoaded}
             >
               {uploading ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
                   Analyzing...
                 </>
+              ) : !imageLoaded ? (
+                <span>Loading image...</span>
               ) : (
                 <>
                   <UploadCloud className="w-6 h-6 mr-2" />
@@ -305,6 +316,7 @@ export default function Home() {
                   src={capturedImage} 
                   alt="Food" 
                   className="w-full aspect-[4/3] object-cover"
+                  onLoad={handleImageLoad}
                 />
                 <Button
                   onClick={handleReset}
