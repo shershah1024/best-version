@@ -19,7 +19,13 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
           content: [
             {
               type: 'text',
-              text: 'Please provide a detailed nutritional analysis of this food.'
+              text: `Please provide a detailed nutritional analysis of this food. For the health score:
+              - Score should be between 0-100
+              - Consider nutritional value, natural ingredients, and overall health benefits
+              - Fresh fruits and vegetables should score high (85-100)
+              - Processed foods should score lower
+              - Balance protein, carbs, and healthy fats
+              - Consider fiber content and natural sugars vs added sugars`
             },
             {
               type: 'image_url',
@@ -88,15 +94,27 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
                     }
                   }
                 },
+                micronutrients: {
+                  type: 'object',
+                  properties: {
+                    // Add micronutrient properties here
+                  }
+                },
                 health_metrics: {
                   type: 'object',
                   properties: {
-                    health_score: { type: 'number' },
-                    detailed_reasoning: { type: 'string' }
+                    health_score: { 
+                      type: 'number',
+                      description: 'Health score from 0-100. Fresh fruits and vegetables should score 85-100. Consider nutritional value and health benefits.'
+                    },
+                    detailed_reasoning: { 
+                      type: 'string',
+                      description: 'Detailed explanation of the health score and nutritional benefits'
+                    }
                   }
                 }
               },
-              required: ['dish_name', 'ingredients', 'macronutrients', 'health_metrics']
+              required: ['dish_name', 'ingredients', 'macronutrients', 'micronutrients', 'health_metrics']
             }
           }
         }
@@ -118,7 +136,14 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
       result.choices[0].message.tool_calls[0].function.arguments
     );
 
-    // Ensure all required fields exist with defaults
+    // Calculate health scores using our calculator
+    const healthScores = HealthScoreCalculator.calculateHealthScores(
+      parsedData.macronutrients,
+      parsedData.ingredients,
+      parsedData.micronutrients
+    );
+
+    // Return combined data with calculated scores
     return {
       dish_name: parsedData.dish_name || 'Unknown Dish',
       ingredients: parsedData.ingredients || [],
@@ -139,9 +164,20 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
           unsaturated: parsedData.macronutrients?.fats?.unsaturated || 0
         }
       },
+      micronutrients: parsedData.micronutrients,
       health_metrics: {
-        health_score: parsedData.health_metrics?.health_score || 0,
-        detailed_reasoning: parsedData.health_metrics?.detailed_reasoning || 'No analysis available'
+        health_score: healthScores.overallScore,
+        detailed_reasoning: healthScores.scoreExplanation,
+        calculated_health_scores: {
+          overall_score: healthScores.overallScore,
+          component_scores: {
+            macronutrient_score: healthScores.macroScore,
+            vitamin_mineral_score: healthScores.vitaminMineralScore,
+            calorie_score: healthScores.calorieScore,
+            ingredient_score: healthScores.ingredientsScore
+          },
+          score_explanation: healthScores.scoreExplanation
+        }
       }
     };
   } catch (error) {
