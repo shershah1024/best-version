@@ -208,38 +208,54 @@ export default function Home() {
                   </h2>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-100 p-4 rounded-2xl">
-                    <Flame className="w-5 h-5 text-blue-600 mb-1" />
-                    <p className="text-2xl font-bold text-blue-900">
-                      {analysisResult.macronutrients.calories}
-                    </p>
-                    <p className="text-sm text-blue-700">Calories</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-100 p-4 rounded-2xl">
-                    <Heart className="w-5 h-5 text-purple-600 mb-1" />
-                    <p className="text-2xl font-bold text-purple-900">
-                      {analysisResult.health_metrics.health_score.toFixed(2)}
-                    </p>
-                    <p className="text-sm text-purple-700">Health Score</p>
-                  </div>
-                </div>
-
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-900">Nutrition Facts</h3>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
-                      <span className="text-gray-700">Protein</span>
-                      <span className="font-semibold text-blue-900">{analysisResult.macronutrients.protein.grams}g</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
-                      <span className="text-gray-700">Carbs</span>
-                      <span className="font-semibold text-blue-900">{analysisResult.macronutrients.carbohydrates.total}g</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
-                      <span className="text-gray-700">Fats</span>
-                      <span className="font-semibold text-blue-900">{analysisResult.macronutrients.fats.total}g</span>
-                    </div>
+                    {analysisResult.macronutrients.calories != null && (
+                      <div className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-100 p-4 rounded-2xl">
+                        <Flame className="w-5 h-5 text-blue-600 mb-1" />
+                        <p className="text-2xl font-bold text-blue-900">
+                          {analysisResult.macronutrients.calories}
+                        </p>
+                        <p className="text-sm text-blue-700">Calories</p>
+                      </div>
+                    )}
+                    
+                    {analysisResult.macronutrients.protein?.grams != null && (
+                      <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
+                        <span className="text-gray-700">Protein</span>
+                        <div className="text-right">
+                          <span className="font-semibold text-blue-900">{analysisResult.macronutrients.protein.grams}g</span>
+                          {analysisResult.macronutrients.protein.daily_value_percentage && (
+                            <p className="text-sm text-gray-500">{analysisResult.macronutrients.protein.daily_value_percentage}% DV</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {analysisResult.macronutrients.carbohydrates?.total != null && (
+                      <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
+                        <span className="text-gray-700">Carbs</span>
+                        <div className="text-right">
+                          <span className="font-semibold text-blue-900">{analysisResult.macronutrients.carbohydrates.total}g</span>
+                          {analysisResult.macronutrients.carbohydrates.fiber != null && (
+                            <p className="text-sm text-gray-500">{analysisResult.macronutrients.carbohydrates.fiber}g Fiber</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {analysisResult.macronutrients.fats?.total != null && (
+                      <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
+                        <span className="text-gray-700">Fats</span>
+                        <div className="text-right">
+                          <span className="font-semibold text-blue-900">{analysisResult.macronutrients.fats.total}g</span>
+                          {analysisResult.macronutrients.fats.saturated != null && (
+                            <p className="text-sm text-gray-500">{analysisResult.macronutrients.fats.saturated}g Saturated</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -377,45 +393,61 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-100 rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Heart className="w-6 h-6 text-purple-600" />
-                    <span className="font-medium text-purple-900">Health Score</span>
+                {analysisResult.health_metrics.health_score != null && (
+                  <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-100 rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Heart className="w-6 h-6 text-purple-600" />
+                      <span className="font-medium text-purple-900">Health Score</span>
+                    </div>
+                    <p className="text-3xl font-bold text-purple-900">
+                      {analysisResult.health_metrics.health_score.toFixed(2)}/100
+                    </p>
                   </div>
-                  <p className="text-3xl font-bold text-purple-900">
-                    {analysisResult.health_metrics.health_score.toFixed(2)}/100
-                  </p>
-                </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-6 mb-8">
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
-                  <h3 className="text-gray-700 mb-2">Protein</h3>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {analysisResult.macronutrients.protein.grams}g
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {analysisResult.macronutrients.protein.daily_value_percentage}% Daily Value
-                  </p>
-                </div>
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
-                  <h3 className="text-gray-700 mb-2">Carbs</h3>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {analysisResult.macronutrients.carbohydrates.total}g
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {analysisResult.macronutrients.carbohydrates.fiber}g Fiber
-                  </p>
-                </div>
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
-                  <h3 className="text-gray-700 mb-2">Fats</h3>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {analysisResult.macronutrients.fats.total}g
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {analysisResult.macronutrients.fats.saturated}g Saturated
-                  </p>
-                </div>
+                {analysisResult.macronutrients.protein?.grams != null && (
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
+                    <h3 className="text-gray-700 mb-2">Protein</h3>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {analysisResult.macronutrients.protein.grams}g
+                    </p>
+                    {analysisResult.macronutrients.protein.daily_value_percentage != null && (
+                      <p className="text-sm text-gray-500">
+                        {analysisResult.macronutrients.protein.daily_value_percentage}% Daily Value
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {analysisResult.macronutrients.carbohydrates?.total != null && (
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
+                    <h3 className="text-gray-700 mb-2">Carbs</h3>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {analysisResult.macronutrients.carbohydrates.total}g
+                    </p>
+                    {analysisResult.macronutrients.carbohydrates.fiber != null && (
+                      <p className="text-sm text-gray-500">
+                        {analysisResult.macronutrients.carbohydrates.fiber}g Fiber
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {analysisResult.macronutrients.fats?.total != null && (
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
+                    <h3 className="text-gray-700 mb-2">Fats</h3>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {analysisResult.macronutrients.fats.total}g
+                    </p>
+                    {analysisResult.macronutrients.fats.saturated != null && (
+                      <p className="text-sm text-gray-500">
+                        {analysisResult.macronutrients.fats.saturated}g Saturated
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
