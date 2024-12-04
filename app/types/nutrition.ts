@@ -45,7 +45,6 @@ export interface Micronutrients {
 export interface HealthMetrics {
   health_score: number;
   detailed_reasoning: string;
-  dietary_flags: string[];
   calculated_health_scores?: {
     overall_score: number;
     component_scores: {

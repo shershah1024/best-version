@@ -88,40 +88,15 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
                     }
                   }
                 },
-                micronutrients: {
-                  type: 'object',
-                  properties: {
-                    vitamins: {
-                      type: 'object',
-                      properties: {
-                        a: { type: 'number' },
-                        c: { type: 'number' },
-                        d: { type: 'number' },
-                        b12: { type: 'number' }
-                      }
-                    },
-                    minerals: {
-                      type: 'object',
-                      properties: {
-                        calcium: { type: 'number' },
-                        iron: { type: 'number' },
-                        sodium: { type: 'number' },
-                        potassium: { type: 'number' }
-                      }
-                    }
-                  }
-                },
                 health_metrics: {
                   type: 'object',
                   properties: {
-                    dietary_flags: { 
-                      type: 'array',
-                      items: { type: 'string' }
-                    }
+                    health_score: { type: 'number' },
+                    detailed_reasoning: { type: 'string' }
                   }
                 }
               },
-              required: ['dish_name', 'ingredients', 'macronutrients']
+              required: ['dish_name', 'ingredients', 'macronutrients', 'health_metrics']
             }
           }
         }
@@ -138,38 +113,41 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
     throw new Error('Invalid response format');
   }
 
-  const baseNutritionData = JSON.parse(
-    result.choices[0].message.tool_calls[0].function.arguments
-  );
+  try {
+    const parsedData = JSON.parse(
+      result.choices[0].message.tool_calls[0].function.arguments
+    );
 
-  // Calculate health scores using our calculator
-  const healthScores = HealthScoreCalculator.calculateHealthScores(
-    baseNutritionData.macronutrients,
-    baseNutritionData.ingredients,
-    baseNutritionData.micronutrients
-  );
-
-  // Combine the base nutrition data with our calculated health scores
-  const nutritionData: NutritionData = {
-    ...baseNutritionData,
-    health_metrics: {
-      health_score: healthScores.overallScore,
-      detailed_reasoning: healthScores.scoreExplanation,
-      dietary_flags: baseNutritionData.health_metrics.dietary_flags,
-      calculated_health_scores: {
-        overall_score: healthScores.overallScore,
-        component_scores: {
-          macronutrient_score: healthScores.macroScore,
-          vitamin_mineral_score: healthScores.vitaminMineralScore,
-          calorie_score: healthScores.calorieScore,
-          ingredient_score: healthScores.ingredientsScore
+    // Ensure all required fields exist with defaults
+    return {
+      dish_name: parsedData.dish_name || 'Unknown Dish',
+      ingredients: parsedData.ingredients || [],
+      macronutrients: {
+        calories: parsedData.macronutrients?.calories || 0,
+        protein: {
+          grams: parsedData.macronutrients?.protein?.grams || 0,
+          daily_value_percentage: parsedData.macronutrients?.protein?.daily_value_percentage || 0
         },
-        score_explanation: healthScores.scoreExplanation
+        carbohydrates: {
+          total: parsedData.macronutrients?.carbohydrates?.total || 0,
+          fiber: parsedData.macronutrients?.carbohydrates?.fiber || 0,
+          sugars: parsedData.macronutrients?.carbohydrates?.sugars || 0
+        },
+        fats: {
+          total: parsedData.macronutrients?.fats?.total || 0,
+          saturated: parsedData.macronutrients?.fats?.saturated || 0,
+          unsaturated: parsedData.macronutrients?.fats?.unsaturated || 0
+        }
+      },
+      health_metrics: {
+        health_score: parsedData.health_metrics?.health_score || 0,
+        detailed_reasoning: parsedData.health_metrics?.detailed_reasoning || 'No analysis available'
       }
-    }
-  };
-
-  return nutritionData;
+    };
+  } catch (error) {
+    console.error('Error parsing API response:', error);
+    throw new Error('Failed to parse nutrition data');
+  }
 }
 
 export async function POST(req: NextRequest) {

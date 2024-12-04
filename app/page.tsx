@@ -248,16 +248,6 @@ export default function Home() {
                   <p className="text-gray-600 text-sm leading-relaxed">
                     {analysisResult.health_metrics.detailed_reasoning}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysisResult.health_metrics.dietary_flags.map((flag, index) => (
-                      <span 
-                        key={index}
-                        className="px-3 py-1 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 text-blue-700 text-sm rounded-full"
-                      >
-                        {flag}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               </div>
             )}
@@ -433,16 +423,6 @@ export default function Home() {
                 <p className="text-gray-600 mb-4 leading-relaxed">
                   {analysisResult.health_metrics.detailed_reasoning}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {analysisResult.health_metrics.dietary_flags.map((flag, index) => (
-                    <span 
-                      key={index}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 text-blue-700 rounded-xl text-sm font-medium"
-                    >
-                      {flag}
-                    </span>
-                  ))}
-                </div>
               </div>
             </div>
           )}
