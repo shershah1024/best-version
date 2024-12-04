@@ -29,11 +29,28 @@ export default function Home() {
     const selectedFile = event.target.files?.[0];
     
     if (selectedFile) {
+      if (capturedImage) {
+        URL.revokeObjectURL(capturedImage);
+      }
+
       if (selectedFile.type.startsWith('image/')) {
-        setFile(selectedFile);
-        setCapturedImage(URL.createObjectURL(selectedFile));
+        if (selectedFile.size > 10 * 1024 * 1024) {
+          setError('Image size too large. Please choose an image under 10MB.');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target?.result as string;
+          setCapturedImage(dataUrl);
+          setFile(selectedFile);
+        };
+        reader.onerror = () => {
+          setError('Error reading file. Please try again.');
+        };
+        reader.readAsDataURL(selectedFile);
       } else {
-        setError('Please select an image file');
+        setError('Please select a valid image file');
       }
     }
   };
@@ -43,12 +60,21 @@ export default function Home() {
   };
 
   const handleUpload = async () => {
-    if (!capturedImage || !file) return;
+    if (!capturedImage || !file) {
+      setError('No image selected');
+      return;
+    }
 
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('image', file);
+      
+      if (file.type.startsWith('image/')) {
+        formData.append('image', file);
+      } else {
+        throw new Error('Invalid file type');
+      }
+      
       formData.append('userEmail', 'test@example.com');
 
       const response = await fetch('/api/analyze', {
@@ -57,14 +83,16 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Upload failed:', errorData);
+        throw new Error(errorData.error || 'Upload failed');
       }
 
       const result = await response.json();
       setAnalysisResult(result.nutritionData);
     } catch (err) {
-      setError('Failed to upload image. Please try again.');
-      console.error('Upload error:', err);
+      console.error('Error details:', err);
+      setError(err instanceof Error ? err.message : 'Failed to upload image. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -106,6 +134,8 @@ export default function Home() {
                 onChange={handleCapture}
                 className="hidden"
                 id="camera-input"
+                multiple={false}
+                max="1"
               />
               <label
                 htmlFor="camera-input"
@@ -292,6 +322,8 @@ export default function Home() {
                   onChange={handleCapture}
                   className="hidden"
                   id="camera-input"
+                  multiple={false}
+                  max="1"
                 />
                 <label
                   htmlFor="camera-input"
