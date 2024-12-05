@@ -2,27 +2,48 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Photo IDs for different score ranges
+const PHOTO_IDS = {
+  HIGH: "1716f79923fe417e80dfd3cb07be01fb",    // Above 80%
+  MEDIUM: "7e6fda74ad8740babb472763a3aaa5a2",  // 70-80%
+  LOW: "3f1f324fa7314983bb9244c55b997189"      // Below 70%
+};
+
 // Type definitions for the request body
-interface HealthData {
-  date: string;
-  combined_health_score: number;
+interface Meal {
+  dish: string;
+  health_score: number;
+}
+
+interface HealthDataItem {
   wellbeing: number;
   activity: number;
   sleep: number;
-  food_score: number;
-  recent_meals: {
-    dish: string;
-    health_score: number;
-  }[];
-  age: number;
-  gender: string;
-  talking_photo_id: string;
+}
+
+interface HealthAverages extends HealthDataItem {
+  count: number;
 }
 
 interface VideoGenerationResponse {
   supabase_url: string;
   error?: string;
   details?: any;
+}
+
+interface RequestData {
+  start_date: string;
+  end_date: string;
+  user_email: string;
+}
+
+function getPhotoIdForScores(wellbeing: number, activity: number, sleep: number): string {
+  // Calculate average of sahha scores
+  const avgScore = (wellbeing + activity + sleep) / 3;
+  
+  if (avgScore >= 80) return PHOTO_IDS.HIGH;
+  if (avgScore >= 70) return PHOTO_IDS.MEDIUM;
+  return PHOTO_IDS.LOW;
 }
 
 export async function POST(request: Request) {
@@ -41,17 +62,99 @@ export async function POST(request: Request) {
     }
 
     // Parse the request body
-    const healthData: HealthData = await request.json();
+    const requestData: RequestData = await request.json();
+    const { start_date, end_date, user_email } = requestData;
 
-    // 1. Generate script using Groq
+    // Initialize Supabase client
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 1. Fetch health data
+    const { data: healthData, error: healthError } = await supabase
+      .from('sahha_data')
+      .select('wellbeing,activity,sleep')
+      .eq('user_email', user_email)
+      .gte('date', start_date)
+      .lte('date', end_date);
+
+    if (healthError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch health data', details: healthError },
+        { status: 500 }
+      );
+    }
+
+    // 2. Fetch food data
+    const { data: foodData, error: foodError } = await supabase
+      .from('food_track')
+      .select('dish,health_score')
+      .eq('user_email', user_email)
+      .gte('created_at', start_date)
+      .lte('created_at', end_date);
+
+    if (foodError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch food data', details: foodError },
+        { status: 500 }
+      );
+    }
+
+    // Calculate health averages
+    const healthAverages = healthData.reduce<HealthAverages>(
+      (acc, item) => ({
+        wellbeing: acc.wellbeing + (item.wellbeing || 0),
+        activity: acc.activity + (item.activity || 0),
+        sleep: acc.sleep + (item.sleep || 0),
+        count: acc.count + 1
+      }),
+      { wellbeing: 0, activity: 0, sleep: 0, count: 0 }
+    );
+
+    const averages = {
+      wellbeing: Math.round((healthAverages.wellbeing / healthAverages.count) * 100),
+      activity: Math.round((healthAverages.activity / healthAverages.count) * 100),
+      sleep: Math.round((healthAverages.sleep / healthAverages.count) * 100)
+    };
+
+    // Calculate food score
+    const foodScore = foodData.length > 0
+      ? Math.round(foodData.reduce((sum, item) => sum + item.health_score, 0) / foodData.length)
+      : 0;
+
+    // Get recent meals
+    const recentMeals = foodData.slice(0, 3);
+
+    // Select photo ID based on health scores
+    const avgScore = (averages.wellbeing + averages.activity + averages.sleep) / 3;
+    let talkingPhotoId;
+    if (avgScore >= 80) {
+      talkingPhotoId = "1716f79923fe417e80dfd3cb07be01fb"; // Best version
+    } else if (avgScore >= 70) {
+      talkingPhotoId = "7e6fda74ad8740babb472763a3aaa5a2"; // Medium version
+    } else {
+      talkingPhotoId = "3f1f324fa7314983bb9244c55b997189"; // Needs improvement
+    }
+
+    // Generate script using Groq
     const messages = [
       {
         role: "system",
-        content: `You are the future self of the user, and you are talking to him/her based on the data you have to motivate to eat better, sleep better and do more activities. Emphasize on how the choices he is making is making the future self healthier/non healthier, happier/not happier and so on. Also talk about how are are feeling as a result of the choices. Keep the response between 30-45 seconds when spoken.`
-      },
-      {
-        role: "user",
-        content: JSON.stringify(healthData)
+        content: `You are the future self of the user, and you are talking to them based on their health data to motivate better habits. Focus on:
+- Wellbeing score: ${averages.wellbeing}/100
+- Activity score: ${averages.activity}/100
+- Sleep score: ${averages.sleep}/100
+- Food score: ${foodScore}/100
+
+Recent meals:
+${recentMeals.map(meal => `- ${meal.dish} (Health Score: ${meal.health_score}/100)`).join('\n')}
+
+Emphasize how their current choices are impacting their future self's health and happiness. If scores are low (below 70), express concern and urgency for change. If scores are medium (70-80), acknowledge progress but encourage improvement. If scores are high (above 80), express pride and encourage maintaining these excellent habits.
+
+When discussing food choices:
+- For healthy meals (score > 80): Express satisfaction and encourage maintaining these choices
+- For moderate meals (score 60-80): Acknowledge the balance but suggest small improvements
+- For less healthy meals (score < 60): Gently suggest healthier alternatives
+
+Keep the response between 30-45 seconds when spoken.`
       }
     ];
 
@@ -95,7 +198,7 @@ export async function POST(request: Request) {
         video_inputs: [{
           character: {
             type: "talking_photo",
-            talking_photo_id: healthData.talking_photo_id
+            talking_photo_id: talkingPhotoId
           },
           voice: {
             type: "text",

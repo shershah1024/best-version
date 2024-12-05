@@ -20,10 +20,6 @@ interface SahhaData {
   sleep: number;
 }
 
-interface FoodData {
-  health_score: number;
-}
-
 interface HealthData {
   wellbeing: number;
   activity: number;
@@ -40,6 +36,7 @@ export default function WeeklyVideoPage() {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Generate last 4 weeks as options
@@ -66,11 +63,6 @@ export default function WeeklyVideoPage() {
     return 'text-red-600';
   };
 
-  const scaleScore = (value: number): number => {
-    // Convert decimal value (e.g., 0.850) to percentage (85)
-    return Math.round(value * 100);
-  };
-
   const fetchWeeklyData = async (week: WeekOption) => {
     try {
       setIsLoading(true);
@@ -85,8 +77,25 @@ export default function WeeklyVideoPage() {
       }
 
       const supabase = createClient(supabaseUrl, supabaseKey);
+      const weekStart = format(week.startDate, 'yyyy-MM-dd');
 
-      // 1. Fetch sahha data for the selected week
+      // 1. Check for existing video
+      const { data: video, error: videoError } = await supabase
+        .from('future_videos')
+        .select('video_url')
+        .eq('week', weekStart)
+        .eq('user_email', USER_EMAIL)
+        .single();
+
+      if (videoError && videoError.code !== 'PGRST116') {
+        console.error('Error fetching video:', videoError);
+      } else if (video?.video_url) {
+        setVideoUrl(video.video_url);
+      } else {
+        setVideoUrl(null);
+      }
+
+      // 2. Fetch sahha data
       const { data: sahhaData, error: sahhaError } = await supabase
         .from('sahha_data')
         .select('date, wellbeing, activity, sleep')
@@ -99,7 +108,7 @@ export default function WeeklyVideoPage() {
         throw new Error('Failed to fetch health data');
       }
 
-      // 2. Fetch food data for the selected week
+      // 3. Fetch food data
       const { data: foodData, error: foodError } = await supabase
         .from('food_track')
         .select('health_score')
@@ -135,29 +144,25 @@ export default function WeeklyVideoPage() {
         sleep: totals.sleep / daysCount
       };
 
-      // Then scale them to percentages
-      const averages = {
-        wellbeing: scaleScore(rawAverages.wellbeing),
-        activity: scaleScore(rawAverages.activity),
-        sleep: scaleScore(rawAverages.sleep)
-      };
-
-      // Calculate food score average (already on 0-100 scale)
+      // Calculate food score average
       const foodScore = foodData && foodData.length > 0
         ? Math.round(foodData.reduce((sum, entry) => sum + entry.health_score, 0) / foodData.length)
         : 0;
 
+      // Then scale them to percentages
+      const averages = {
+        wellbeing: Math.round(rawAverages.wellbeing * 100),
+        activity: Math.round(rawAverages.activity * 100),
+        sleep: Math.round(rawAverages.sleep * 100)
+      };
+
       // Calculate trends using the latest day's values
       const latestDay = sahhaData[0];
       const trends = {
-        wellbeing_trend: scaleScore(latestDay.wellbeing) - averages.wellbeing,
-        activity_trend: scaleScore(latestDay.activity) - averages.activity,
-        sleep_trend: scaleScore(latestDay.sleep) - averages.sleep
+        wellbeing_trend: Math.round(latestDay.wellbeing * 100) - averages.wellbeing,
+        activity_trend: Math.round(latestDay.activity * 100) - averages.activity,
+        sleep_trend: Math.round(latestDay.sleep * 100) - averages.sleep
       };
-
-      console.log('Raw Data:', { sahhaData, foodData });
-      console.log('Calculated Averages:', averages);
-      console.log('Trends:', trends);
 
       setHealthData({
         ...averages,
@@ -183,7 +188,7 @@ export default function WeeklyVideoPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">
             Weekly Health Dashboard
@@ -220,7 +225,7 @@ export default function WeeklyVideoPage() {
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
               <p className="mt-2 text-gray-600">
-                Loading your health data...
+                Loading your weekly insights...
               </p>
             </div>
           )}
@@ -232,80 +237,97 @@ export default function WeeklyVideoPage() {
             </div>
           )}
 
-          {/* No Data State */}
-          {!isLoading && !error && !healthData && (
-            <div className="text-center py-12">
-              <p className="text-gray-600">No health data available for this week.</p>
-            </div>
-          )}
-
-          {/* Health Data Display */}
-          {healthData && !isLoading && (
-            <div className="space-y-6">
-              {/* Health Metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg border p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Heart className="w-5 h-5 text-red-500" />
-                    <span className="font-medium">Wellbeing</span>
-                    {getTrendIcon(healthData.trends.wellbeing_trend)}
+          {/* Content Display */}
+          {(healthData || videoUrl) && !isLoading && (
+            <div className="mt-6 grid md:grid-cols-2 gap-8">
+              {/* Video Section */}
+              {videoUrl && (
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 mb-4">Message from Your Future Self</h2>
+                  <div className="aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg overflow-hidden">
+                    <video
+                      controls
+                      className="w-full h-full object-contain"
+                      src={videoUrl}
+                    >
+                      Your browser does not support the video tag.
+                    </video>
                   </div>
-                  <span className={`text-xl font-bold ${getScoreColor(healthData.wellbeing)}`}>
-                    {healthData.wellbeing}/100
-                  </span>
                 </div>
+              )}
 
-                <div className="bg-white rounded-lg border p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Activity className="w-5 h-5 text-green-500" />
-                    <span className="font-medium">Activity</span>
-                    {getTrendIcon(healthData.trends.activity_trend)}
+              {/* Health Data Section */}
+              {healthData && (
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 mb-4">Weekly Health Summary</h2>
+                  <div className="space-y-6">
+                    {/* Health Metrics */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white rounded-lg border p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Heart className="w-5 h-5 text-red-500" />
+                          <span className="font-medium">Wellbeing</span>
+                          {getTrendIcon(healthData.trends.wellbeing_trend)}
+                        </div>
+                        <span className={`text-xl font-bold ${getScoreColor(healthData.wellbeing)}`}>
+                          {healthData.wellbeing}/100
+                        </span>
+                      </div>
+
+                      <div className="bg-white rounded-lg border p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Activity className="w-5 h-5 text-green-500" />
+                          <span className="font-medium">Activity</span>
+                          {getTrendIcon(healthData.trends.activity_trend)}
+                        </div>
+                        <span className={`text-xl font-bold ${getScoreColor(healthData.activity)}`}>
+                          {healthData.activity}/100
+                        </span>
+                      </div>
+
+                      <div className="bg-white rounded-lg border p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Moon className="w-5 h-5 text-purple-500" />
+                          <span className="font-medium">Sleep</span>
+                          {getTrendIcon(healthData.trends.sleep_trend)}
+                        </div>
+                        <span className={`text-xl font-bold ${getScoreColor(healthData.sleep)}`}>
+                          {healthData.sleep}/100
+                        </span>
+                      </div>
+
+                      <div className="bg-white rounded-lg border p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Utensils className="w-5 h-5 text-orange-500" />
+                          <span className="font-medium">Food Score</span>
+                        </div>
+                        <span className={`text-xl font-bold ${getScoreColor(healthData.food_score)}`}>
+                          {healthData.food_score}/100
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Trends Explanation */}
+                    <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+                      <h3 className="font-medium text-gray-900 mb-2">Understanding Your Trends</h3>
+                      <ul className="space-y-1">
+                        <li className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-green-500" />
+                          <span>Upward trend indicates improvement</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <TrendingDown className="w-4 h-4 text-red-500" />
+                          <span>Downward trend suggests decline</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <Minus className="w-4 h-4 text-gray-500" />
+                          <span>Horizontal trend shows stability</span>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
-                  <span className={`text-xl font-bold ${getScoreColor(healthData.activity)}`}>
-                    {healthData.activity}/100
-                  </span>
                 </div>
-
-                <div className="bg-white rounded-lg border p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Moon className="w-5 h-5 text-purple-500" />
-                    <span className="font-medium">Sleep</span>
-                    {getTrendIcon(healthData.trends.sleep_trend)}
-                  </div>
-                  <span className={`text-xl font-bold ${getScoreColor(healthData.sleep)}`}>
-                    {healthData.sleep}/100
-                  </span>
-                </div>
-
-                <div className="bg-white rounded-lg border p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Utensils className="w-5 h-5 text-orange-500" />
-                    <span className="font-medium">Food Score</span>
-                  </div>
-                  <span className={`text-xl font-bold ${getScoreColor(healthData.food_score)}`}>
-                    {healthData.food_score}/100
-                  </span>
-                </div>
-              </div>
-
-              {/* Trends Explanation */}
-              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
-                <h3 className="font-medium text-gray-900 mb-2">Understanding Your Trends</h3>
-                <ul className="space-y-1">
-                  <li className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-500" />
-                    <span>Upward trend indicates improvement</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4 text-red-500" />
-                    <span>Downward trend suggests decline</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Minus className="w-4 h-4 text-gray-500" />
-                    <span>Horizontal trend shows stability</span>
-                  </li>
-                </ul>
-              </div>
+              )}
             </div>
           )}
         </div>
