@@ -9,6 +9,7 @@ export interface NutritionData {
     carbohydrates?: {
       total: number;
       fiber?: number;
+      sugars?: number;
     };
     fats?: {
       total: number;
@@ -35,6 +36,7 @@ export interface FoodTrackEntry {
     carbohydrates?: {
       total: number;
       fiber?: number;
+      sugars?: number;
     };
     fats?: {
       total: number;
