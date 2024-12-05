@@ -14,6 +14,7 @@ export interface NutritionData {
     fats?: {
       total: number;
       saturated?: number;
+      unsaturated?: number;
     };
   };
   health_metrics: {
@@ -41,6 +42,7 @@ export interface FoodTrackEntry {
     fats?: {
       total: number;
       saturated?: number;
+      unsaturated?: number;
     };
   };
   health_score: number;
