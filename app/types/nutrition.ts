@@ -9,6 +9,24 @@ export interface ServingInfo {
   servings_per_container: number;
 }
 
+export interface Macronutrients {
+  calories: number | null;
+  protein?: {
+    grams: number;
+    daily_value_percentage?: number;
+  };
+  carbohydrates?: {
+    total: number;
+    fiber?: number;
+    sugars?: number;
+  };
+  fats?: {
+    total: number;
+    saturated?: number;
+    unsaturated?: number;
+  };
+}
+
 export interface Micronutrients {
   vitamins: {
     a: number;
@@ -28,23 +46,7 @@ export interface NutritionData {
   dish_name: string;
   ingredients: Ingredient[];
   serving_info?: ServingInfo;
-  macronutrients: {
-    calories: number | null;
-    protein?: {
-      grams: number;
-      daily_value_percentage?: number;
-    };
-    carbohydrates?: {
-      total: number;
-      fiber?: number;
-      sugars?: number;
-    };
-    fats?: {
-      total: number;
-      saturated?: number;
-      unsaturated?: number;
-    };
-  };
+  macronutrients: Macronutrients;
   micronutrients?: Micronutrients;
   health_metrics: {
     health_score: number;
@@ -67,22 +69,6 @@ export interface FoodTrackEntry {
   created_at?: string;
   user_email: string;
   dish: string;
-  macro_nutrients: {
-    calories: number | null;
-    protein?: {
-      grams: number;
-      daily_value_percentage?: number;
-    };
-    carbohydrates?: {
-      total: number;
-      fiber?: number;
-      sugars?: number;
-    };
-    fats?: {
-      total: number;
-      saturated?: number;
-      unsaturated?: number;
-    };
-  };
+  macro_nutrients: Macronutrients;
   health_score: number;
 }

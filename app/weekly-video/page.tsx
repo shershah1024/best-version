@@ -5,6 +5,8 @@ import { format, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { createClient } from '@supabase/supabase-js';
 import { Activity, Heart, Utensils, Moon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
+const USER_EMAIL = 'test@example.com';
+
 interface WeekOption {
   label: string;
   startDate: Date;
@@ -16,6 +18,7 @@ interface FutureVideo {
   created_at?: string;
   week: string;
   video_url: string;
+  user_email: string;
 }
 
 interface HealthData {
@@ -34,8 +37,6 @@ interface HealthData {
     sleep_trend: number;
   };
 }
-
-const USER_EMAIL = 'test@example.com';
 
 export default function WeeklyVideoPage() {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption | null>(null);
@@ -72,6 +73,8 @@ export default function WeeklyVideoPage() {
     try {
       setIsLoading(true);
       setError(null);
+      setVideoUrl(null);
+      setHealthData(null);
 
       // Initialize Supabase client
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -82,19 +85,7 @@ export default function WeeklyVideoPage() {
       }
 
       const supabase = createClient(supabaseUrl, supabaseKey);
-
-      // Check if video already exists for this week
       const weekStart = format(week.startDate, 'yyyy-MM-dd');
-      const { data: existingVideos, error: fetchError } = await supabase
-        .from('future_videos')
-        .select('*')
-        .eq('week', weekStart)
-        .eq('user_email', USER_EMAIL)
-        .limit(1);
-
-      if (fetchError) {
-        throw new Error('Failed to check existing videos');
-      }
 
       // 1. Get the health data for the selected week
       const healthDataResponse = await fetch(
@@ -108,13 +99,29 @@ export default function WeeklyVideoPage() {
       const weeklyHealthData = await healthDataResponse.json();
       setHealthData(weeklyHealthData);
 
-      if (existingVideos && existingVideos.length > 0) {
-        // Use existing video
-        setVideoUrl(existingVideos[0].video_url);
+      // 2. Check for existing video
+      let existingVideo: FutureVideo | null = null;
+      try {
+        const { data: videos } = await supabase
+          .from('future_videos')
+          .select('*')
+          .eq('week', weekStart)
+          .eq('user_email', USER_EMAIL)
+          .limit(1)
+          .single();
+        
+        existingVideo = videos;
+      } catch (error) {
+        console.log('No existing video found or error fetching:', error);
+        // Continue with video generation if no video exists or there was an error
+      }
+
+      if (existingVideo?.video_url) {
+        setVideoUrl(existingVideo.video_url);
         return;
       }
 
-      // 2. Generate the video using the health data
+      // 3. Generate new video if none exists
       const videoResponse = await fetch('/api/video-script', {
         method: 'POST',
         headers: {
@@ -132,19 +139,20 @@ export default function WeeklyVideoPage() {
 
       const videoData = await videoResponse.json();
 
-      // 3. Save the video URL to the future_videos table
-      const { error: insertError } = await supabase
-        .from('future_videos')
-        .insert([
-          {
-            week: weekStart,
-            video_url: videoData.supabase_url,
-            user_email: USER_EMAIL
-          }
-        ]);
-
-      if (insertError) {
-        throw new Error('Failed to save video data');
+      // 4. Save the video URL to the future_videos table
+      try {
+        await supabase
+          .from('future_videos')
+          .insert([
+            {
+              week: weekStart,
+              video_url: videoData.supabase_url,
+              user_email: USER_EMAIL
+            }
+          ]);
+      } catch (error) {
+        console.error('Failed to save video to database:', error);
+        // Continue since we still have the video URL
       }
 
       setVideoUrl(videoData.supabase_url);
