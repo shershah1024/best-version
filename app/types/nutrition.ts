@@ -1,5 +1,33 @@
+export interface Ingredient {
+  name: string;
+  estimated_amount: string;
+  allergen: boolean;
+}
+
+export interface ServingInfo {
+  serving_size: string;
+  servings_per_container: number;
+}
+
+export interface Micronutrients {
+  vitamins: {
+    a: number;
+    c: number;
+    d: number;
+    b12: number;
+  };
+  minerals: {
+    calcium: number;
+    iron: number;
+    sodium: number;
+    potassium: number;
+  };
+}
+
 export interface NutritionData {
   dish_name: string;
+  ingredients: Ingredient[];
+  serving_info?: ServingInfo;
   macronutrients: {
     calories: number | null;
     protein?: {
@@ -17,6 +45,7 @@ export interface NutritionData {
       unsaturated?: number;
     };
   };
+  micronutrients?: Micronutrients;
   health_metrics: {
     health_score: number;
     detailed_reasoning: string;

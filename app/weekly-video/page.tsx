@@ -35,6 +35,8 @@ interface HealthData {
   };
 }
 
+const USER_EMAIL = 'test@example.com';
+
 export default function WeeklyVideoPage() {
   const [selectedWeek, setSelectedWeek] = useState<WeekOption | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,6 +89,7 @@ export default function WeeklyVideoPage() {
         .from('future_videos')
         .select('*')
         .eq('week', weekStart)
+        .eq('user_email', USER_EMAIL)
         .limit(1);
 
       if (fetchError) {
@@ -95,7 +98,7 @@ export default function WeeklyVideoPage() {
 
       // 1. Get the health data for the selected week
       const healthDataResponse = await fetch(
-        `/api/food-data?user_email=user@example.com&start_date=${week.startDate.toISOString()}&end_date=${week.endDate.toISOString()}`
+        `/api/food-data?user_email=${USER_EMAIL}&start_date=${week.startDate.toISOString()}&end_date=${week.endDate.toISOString()}`
       );
 
       if (!healthDataResponse.ok) {
@@ -117,7 +120,10 @@ export default function WeeklyVideoPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(weeklyHealthData)
+        body: JSON.stringify({
+          ...weeklyHealthData,
+          user_email: USER_EMAIL
+        })
       });
 
       if (!videoResponse.ok) {
@@ -132,7 +138,8 @@ export default function WeeklyVideoPage() {
         .insert([
           {
             week: weekStart,
-            video_url: videoData.supabase_url
+            video_url: videoData.supabase_url,
+            user_email: USER_EMAIL
           }
         ]);
 
