@@ -20,6 +20,16 @@ export interface NutritionData {
   health_metrics: {
     health_score: number;
     detailed_reasoning: string;
+    calculated_health_scores?: {
+      overall_score: number;
+      component_scores: {
+        macronutrient_score: number;
+        vitamin_mineral_score: number;
+        calorie_score: number;
+        ingredient_score: number;
+      };
+      score_explanation: string;
+    };
   };
 }
 
