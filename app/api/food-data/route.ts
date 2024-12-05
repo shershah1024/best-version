@@ -75,6 +75,7 @@ export async function GET(request: Request) {
     const { data: healthData, error: healthError } = await supabase
       .from('sahha_data')
       .select('date, wellbeing, activity, sleep')
+      .eq('user_email', userEmail)
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: false });

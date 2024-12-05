@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Camera, Video, Home } from 'lucide-react';
+import { Camera, Video, Home, Sparkles } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -36,9 +36,12 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link 
               href="/"
-              className="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+              className="flex items-center gap-2 text-xl font-bold"
             >
-              FutureMe
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Best Future Friend
+              </span>
             </Link>
           </div>
 
