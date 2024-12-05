@@ -6,9 +6,6 @@ import { HealthScoreCalculator } from '../../../utils/scoring/healthScoreCalcula
 const GROQ_API_KEY = process.env.GROQ_API_KEY!;
 
 async function analyzeImage(imageBase64: string): Promise<NutritionData> {
-  // Log image size for debugging
-  console.log('Image base64 length:', imageBase64.length);
-
   const requestBody = {
     messages: [
       {
@@ -16,13 +13,7 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
         content: [
           {
             type: 'text',
-            text: `Analyze this food image and provide detailed nutritional information including:
-            - Identify the dish name
-            - List main ingredients
-            - Calculate calories
-            - Estimate protein, carbs, and fats
-            - Include vitamin and mineral content if visible
-            Please be specific with measurements and quantities.`
+            text: 'Analyze this food image and provide nutritional information. Be concise and focus on key metrics.'
           },
           {
             type: 'image_url',
@@ -35,7 +26,7 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
     ],
     model: 'llama-3.2-90b-vision-preview',
     temperature: 0.1,
-    max_tokens: 1024,
+    max_tokens: 800,
     top_p: 1,
     stream: false,
     tools: [
@@ -49,7 +40,7 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
             properties: {
               dish_name: {
                 type: 'string',
-                description: 'Name of the food item'
+                description: 'Name of the identified dish or food item'
               },
               ingredients: {
                 type: 'array',
@@ -108,9 +99,27 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
                     properties: {
                       calcium: { type: 'number' },
                       iron: { type: 'number' },
-                      potassium: { type: 'number' },
-                      sodium: { type: 'number' }
+                      sodium: { type: 'number' },
+                      potassium: { type: 'number' }
                     }
+                  }
+                }
+              },
+              health_metrics: {
+                type: 'object',
+                properties: {
+                  health_score: {
+                    type: 'number',
+                    minimum: 0,
+                    maximum: 100
+                  },
+                  detailed_reasoning: {
+                    type: 'string',
+                    description: 'Brief explanation of health score'
+                  },
+                  dietary_flags: {
+                    type: 'array',
+                    items: { type: 'string' }
                   }
                 }
               }
@@ -119,100 +128,77 @@ async function analyzeImage(imageBase64: string): Promise<NutritionData> {
           }
         }
       }
-    ]
+    ],
+    tool_choice: 'auto'
   };
 
-  console.log('Making API request to Groq...');
-  
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
     });
 
+    clearTimeout(timeoutId);
+
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const errorText = await response.text();
       console.error('API Response Error:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText
+        body: responseText
       });
+
+      if (response.status === 524) {
+        throw new Error('The request timed out. The image might be too large or the service might be temporarily unavailable.');
+      }
+
       throw new Error(`Failed to analyze image: ${response.status} ${response.statusText}`);
     }
 
-    const result = await response.json();
-    console.log('API Response:', JSON.stringify(result, null, 2));
+    const result = JSON.parse(responseText);
 
     if (!result.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
-      console.error('Invalid response structure:', result);
       throw new Error('Invalid response format');
     }
 
     const parsedData = JSON.parse(
       result.choices[0].message.tool_calls[0].function.arguments
     );
-    console.log('Parsed nutrition data:', JSON.stringify(parsedData, null, 2));
 
-    // Ensure we have the minimum required data
-    if (!parsedData.dish_name || !parsedData.ingredients || !parsedData.macronutrients) {
-      console.error('Missing required data in API response:', parsedData);
-      throw new Error('Incomplete nutrition data from API');
-    }
-
-    // Ensure macronutrients have the required structure
-    const macros = parsedData.macronutrients;
-    if (!macros.calories || !macros.protein?.grams || !macros.carbohydrates?.total || !macros.fats?.total) {
-      console.error('Incomplete macronutrient data:', macros);
-      throw new Error('Incomplete macronutrient data from API');
-    }
-
-    // Calculate health scores
+    // Calculate custom health scores
     const healthScores = HealthScoreCalculator.calculateHealthScores(
       parsedData.macronutrients,
       parsedData.ingredients,
       parsedData.micronutrients
     );
 
-    return {
-      dish_name: parsedData.dish_name,
-      ingredients: parsedData.ingredients,
-      macronutrients: {
-        calories: macros.calories,
-        protein: {
-          grams: macros.protein.grams,
-          daily_value_percentage: macros.protein.daily_value_percentage || 0
-        },
-        carbohydrates: {
-          total: macros.carbohydrates.total,
-          fiber: macros.carbohydrates.fiber || 0,
-          sugars: macros.carbohydrates.sugars || 0
-        },
-        fats: {
-          total: macros.fats.total,
-          saturated: macros.fats.saturated || 0,
-          unsaturated: macros.fats.unsaturated || 0
-        }
+    // Ensure health_metrics exists
+    if (!parsedData.health_metrics) {
+      parsedData.health_metrics = {};
+    }
+
+    // Update the nutrition data with custom scores
+    parsedData.health_metrics.calculated_health_scores = {
+      overall_score: Math.round(healthScores.overallScore * 100) / 100,
+      component_scores: {
+        macronutrient_score: Math.round(healthScores.macroScore * 100) / 100,
+        vitamin_mineral_score: Math.round(healthScores.vitaminMineralScore * 100) / 100,
+        calorie_score: Math.round(healthScores.calorieScore * 100) / 100,
+        ingredient_score: Math.round(healthScores.ingredientsScore * 100) / 100
       },
-      micronutrients: parsedData.micronutrients || {},
-      health_metrics: {
-        health_score: healthScores.overallScore,
-        detailed_reasoning: healthScores.scoreExplanation,
-        calculated_health_scores: {
-          overall_score: healthScores.overallScore,
-          component_scores: {
-            macronutrient_score: healthScores.macroScore,
-            vitamin_mineral_score: healthScores.vitaminMineralScore,
-            calorie_score: healthScores.calorieScore,
-            ingredient_score: healthScores.ingredientsScore
-          },
-          score_explanation: healthScores.scoreExplanation
-        }
-      }
+      score_explanation: healthScores.scoreExplanation
     };
+
+    return parsedData;
   } catch (error) {
     console.error('Error in analyzeImage:', error);
     throw error;

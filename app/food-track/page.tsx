@@ -265,6 +265,78 @@ export default function FoodTrackPage() {
                     {analysisResult.health_metrics.detailed_reasoning}
                   </p>
                 </div>
+
+                {/* Detailed Health Score Components */}
+                {analysisResult.health_metrics.calculated_health_scores && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-bold text-gray-900">Health Score Breakdown</h3>
+                    <div className="space-y-2">
+                      {Object.entries(analysisResult.health_metrics.calculated_health_scores.component_scores).map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
+                          <span className="text-gray-700">{key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</span>
+                          <span className="font-semibold text-blue-900">{value.toFixed(1)}/100</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">
+                      {analysisResult.health_metrics.calculated_health_scores.score_explanation}
+                    </p>
+                  </div>
+                )}
+
+                {/* Ingredients List */}
+                {analysisResult.ingredients && analysisResult.ingredients.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-bold text-gray-900">Ingredients</h3>
+                    <div className="space-y-2">
+                      {analysisResult.ingredients.map((ingredient, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
+                          <span className="text-gray-700">{ingredient.name}</span>
+                          {ingredient.estimated_amount && (
+                            <span className="text-sm text-gray-500">{ingredient.estimated_amount}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Micronutrients */}
+                {analysisResult.micronutrients && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-bold text-gray-900">Vitamins & Minerals</h3>
+                    
+                    {/* Vitamins */}
+                    {analysisResult.micronutrients.vitamins && Object.keys(analysisResult.micronutrients.vitamins).length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700">Vitamins</h4>
+                        {Object.entries(analysisResult.micronutrients.vitamins).map(([vitamin, amount]) => (
+                          amount && (
+                            <div key={vitamin} className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
+                              <span className="text-gray-700">Vitamin {vitamin.toUpperCase()}</span>
+                              <span className="font-semibold text-blue-900">{amount}mcg</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Minerals */}
+                    {analysisResult.micronutrients.minerals && Object.keys(analysisResult.micronutrients.minerals).length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700">Minerals</h4>
+                        {Object.entries(analysisResult.micronutrients.minerals).map(([mineral, amount]) => (
+                          amount && (
+                            <div key={mineral} className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl">
+                              <span className="text-gray-700">{mineral.charAt(0).toUpperCase() + mineral.slice(1)}</span>
+                              <span className="font-semibold text-blue-900">{amount}mg</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -452,9 +524,91 @@ export default function FoodTrackPage() {
 
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Health Insights</h3>
-                <p className="text-gray-600 mb-4 leading-relaxed">
+                <p className="text-gray-600 mb-6 leading-relaxed">
                   {analysisResult.health_metrics.detailed_reasoning}
                 </p>
+
+                {/* Detailed Health Score Components */}
+                {analysisResult.health_metrics.calculated_health_scores && (
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">Health Score Breakdown</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {Object.entries(analysisResult.health_metrics.calculated_health_scores.component_scores).map(([key, value]) => (
+                        <div key={key} className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-4">
+                          <h4 className="text-gray-700 mb-2">{key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</h4>
+                          <p className="text-2xl font-bold text-gray-900">{value.toFixed(1)}/100</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-gray-600 mt-4 whitespace-pre-line">
+                      {analysisResult.health_metrics.calculated_health_scores.score_explanation}
+                    </p>
+                  </div>
+                )}
+
+                {/* Ingredients List */}
+                {analysisResult.ingredients && analysisResult.ingredients.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">Ingredients</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {analysisResult.ingredients.map((ingredient, index) => (
+                        <div key={index} className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-4">
+                          <h4 className="text-gray-700 mb-1">{ingredient.name}</h4>
+                          {ingredient.estimated_amount && (
+                            <p className="text-sm text-gray-500">{ingredient.estimated_amount}</p>
+                          )}
+                          {ingredient.allergen && (
+                            <span className="inline-block mt-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full">
+                              Allergen
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Micronutrients */}
+                {analysisResult.micronutrients && (
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">Vitamins & Minerals</h3>
+                    <div className="grid grid-cols-2 gap-8">
+                      {/* Vitamins */}
+                      {analysisResult.micronutrients.vitamins && Object.keys(analysisResult.micronutrients.vitamins).length > 0 && (
+                        <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-4">Vitamins</h4>
+                          <div className="space-y-3">
+                            {Object.entries(analysisResult.micronutrients.vitamins).map(([vitamin, amount]) => (
+                              amount && (
+                                <div key={vitamin} className="flex justify-between items-center">
+                                  <span className="text-gray-700">Vitamin {vitamin.toUpperCase()}</span>
+                                  <span className="font-semibold text-blue-900">{amount}mcg</span>
+                                </div>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Minerals */}
+                      {analysisResult.micronutrients.minerals && Object.keys(analysisResult.micronutrients.minerals).length > 0 && (
+                        <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-6">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-4">Minerals</h4>
+                          <div className="space-y-3">
+                            {Object.entries(analysisResult.micronutrients.minerals).map(([mineral, amount]) => (
+                              amount && (
+                                <div key={mineral} className="flex justify-between items-center">
+                                  <span className="text-gray-700">{mineral.charAt(0).toUpperCase() + mineral.slice(1)}</span>
+                                  <span className="font-semibold text-blue-900">{amount}mg</span>
+                                </div>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
