@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { format, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
-import { Activity, Heart, Moon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Activity, Heart, Moon, TrendingUp, TrendingDown, Minus, Utensils } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
 const USER_EMAIL = 'test@example.com';
 
@@ -12,11 +13,22 @@ interface WeekOption {
   endDate: Date;
 }
 
-interface HealthData {
-  combined_health_score: number;
+interface SahhaData {
+  date: string;
   wellbeing: number;
   activity: number;
   sleep: number;
+}
+
+interface FoodData {
+  health_score: number;
+}
+
+interface HealthData {
+  wellbeing: number;
+  activity: number;
+  sleep: number;
+  food_score: number;
   trends: {
     wellbeing_trend: number;
     activity_trend: number;
@@ -54,22 +66,104 @@ export default function WeeklyVideoPage() {
     return 'text-red-600';
   };
 
+  const scaleScore = (value: number): number => {
+    // Convert decimal value (e.g., 0.850) to percentage (85)
+    return Math.round(value * 100);
+  };
+
   const fetchWeeklyData = async (week: WeekOption) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Get health data
-      const healthDataResponse = await fetch(
-        `/api/food-data?user_email=${USER_EMAIL}&start_date=${week.startDate.toISOString()}&end_date=${week.endDate.toISOString()}`
-      );
+      // Initialize Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-      if (!healthDataResponse.ok) {
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Missing Supabase credentials');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // 1. Fetch sahha data for the selected week
+      const { data: sahhaData, error: sahhaError } = await supabase
+        .from('sahha_data')
+        .select('date, wellbeing, activity, sleep')
+        .eq('user_email', USER_EMAIL)
+        .gte('date', format(week.startDate, 'yyyy-MM-dd'))
+        .lte('date', format(week.endDate, 'yyyy-MM-dd'))
+        .order('date', { ascending: false });
+
+      if (sahhaError) {
         throw new Error('Failed to fetch health data');
       }
 
-      const weeklyHealthData = await healthDataResponse.json();
-      setHealthData(weeklyHealthData);
+      // 2. Fetch food data for the selected week
+      const { data: foodData, error: foodError } = await supabase
+        .from('food_track')
+        .select('health_score')
+        .eq('user_email', USER_EMAIL)
+        .gte('created_at', format(week.startDate, 'yyyy-MM-dd'))
+        .lte('created_at', format(week.endDate, 'yyyy-MM-dd'));
+
+      if (foodError) {
+        throw new Error('Failed to fetch food data');
+      }
+
+      if (!sahhaData || sahhaData.length === 0) {
+        setHealthData(null);
+        return;
+      }
+
+      // Calculate weekly averages for sahha data
+      const totals = sahhaData.reduce(
+        (acc, day) => ({
+          wellbeing: acc.wellbeing + (day.wellbeing || 0),
+          activity: acc.activity + (day.activity || 0),
+          sleep: acc.sleep + (day.sleep || 0)
+        }),
+        { wellbeing: 0, activity: 0, sleep: 0 }
+      );
+
+      const daysCount = sahhaData.length;
+      
+      // First calculate the averages of the decimal values
+      const rawAverages = {
+        wellbeing: totals.wellbeing / daysCount,
+        activity: totals.activity / daysCount,
+        sleep: totals.sleep / daysCount
+      };
+
+      // Then scale them to percentages
+      const averages = {
+        wellbeing: scaleScore(rawAverages.wellbeing),
+        activity: scaleScore(rawAverages.activity),
+        sleep: scaleScore(rawAverages.sleep)
+      };
+
+      // Calculate food score average (already on 0-100 scale)
+      const foodScore = foodData && foodData.length > 0
+        ? Math.round(foodData.reduce((sum, entry) => sum + entry.health_score, 0) / foodData.length)
+        : 0;
+
+      // Calculate trends using the latest day's values
+      const latestDay = sahhaData[0];
+      const trends = {
+        wellbeing_trend: scaleScore(latestDay.wellbeing) - averages.wellbeing,
+        activity_trend: scaleScore(latestDay.activity) - averages.activity,
+        sleep_trend: scaleScore(latestDay.sleep) - averages.sleep
+      };
+
+      console.log('Raw Data:', { sahhaData, foodData });
+      console.log('Calculated Averages:', averages);
+      console.log('Trends:', trends);
+
+      setHealthData({
+        ...averages,
+        food_score: foodScore,
+        trends
+      });
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -138,21 +232,18 @@ export default function WeeklyVideoPage() {
             </div>
           )}
 
+          {/* No Data State */}
+          {!isLoading && !error && !healthData && (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No health data available for this week.</p>
+            </div>
+          )}
+
           {/* Health Data Display */}
           {healthData && !isLoading && (
             <div className="space-y-6">
-              {/* Overall Score */}
-              <div className="bg-blue-50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-blue-700 font-medium">Overall Health Score</span>
-                  <span className={`text-2xl font-bold ${getScoreColor(healthData.combined_health_score)}`}>
-                    {healthData.combined_health_score}/100
-                  </span>
-                </div>
-              </div>
-
               {/* Health Metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="bg-white rounded-lg border p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Heart className="w-5 h-5 text-red-500" />
@@ -183,6 +274,16 @@ export default function WeeklyVideoPage() {
                   </div>
                   <span className={`text-xl font-bold ${getScoreColor(healthData.sleep)}`}>
                     {healthData.sleep}/100
+                  </span>
+                </div>
+
+                <div className="bg-white rounded-lg border p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Utensils className="w-5 h-5 text-orange-500" />
+                    <span className="font-medium">Food Score</span>
+                  </div>
+                  <span className={`text-xl font-bold ${getScoreColor(healthData.food_score)}`}>
+                    {healthData.food_score}/100
                   </span>
                 </div>
               </div>
