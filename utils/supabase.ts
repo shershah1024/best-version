@@ -1,37 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
-import { FoodTrackEntry } from '../app/types/nutrition';
+import logger from './logger';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient<{
-  Tables: {
-    food_track: {
-      Row: FoodTrackEntry;
-      Insert: Omit<FoodTrackEntry, 'id' | 'created_at'>;
-      Update: Partial<FoodTrackEntry>;
-    };
-  };
-}>(supabaseUrl, supabaseKey);
-
-export async function insertFoodEntry(entry: Omit<FoodTrackEntry, 'id' | 'created_at'>) {
-  const { data, error } = await supabase
-    .from('food_track')
-    .insert([entry])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+if (!supabaseUrl || !supabaseAnonKey) {
+  logger.error('Missing Supabase environment variables', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey
+  });
+  throw new Error('Missing required Supabase configuration');
 }
 
-export async function getFoodEntries(userEmail: string) {
-  const { data, error } = await supabase
-    .from('food_track')
-    .select('*')
-    .eq('user_email', userEmail)
-    .order('created_at', { ascending: false });
+logger.info('Initializing Supabase client', { url: supabaseUrl });
 
-  if (error) throw error;
-  return data;
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Add initialization check
+supabase.auth.getSession().then(() => {
+  logger.info('Supabase client initialized successfully');
+}).catch((error) => {
+  logger.error('Failed to initialize Supabase client', error);
+});
