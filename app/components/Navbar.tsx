@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Camera, Video, Home, Sparkles } from 'lucide-react';
+import { Camera, Video, Home, Sparkles, Shirt } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -26,6 +26,11 @@ export default function Navbar() {
       name: 'Track Food',
       path: '/food-track',
       icon: Camera
+    },
+    {
+      name: 'Try On',
+      path: '/try-on',
+      icon: Shirt
     }
   ];
 

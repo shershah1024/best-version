@@ -15,6 +15,8 @@ export default function GarmentPage() {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [resultImageUrl, setResultImageUrl] = useState<string | null>(null)
+  const [taskId, setTaskId] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -92,6 +94,36 @@ export default function GarmentPage() {
     setError(null)
   }
 
+  const checkTaskStatus = async (taskId: string) => {
+    try {
+      const response = await fetch(`/api/try-on/status?taskId=${taskId}`)
+      const data = await response.json()
+
+      if (response.ok && data.status === "success") {
+        setResultImageUrl(data.generated_image_url)
+        setTaskId(null)
+        setRetryCount(0)
+      } else if (response.status === 202 || data.status === "pending") {
+        if (retryCount < 20) {
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1)
+            checkTaskStatus(taskId)
+          }, 3000)
+        } else {
+          setError("Process is taking longer than expected. Please try again.")
+          setTaskId(null)
+          setRetryCount(0)
+        }
+      } else {
+        throw new Error(data.message || "Failed to check task status")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to check task status")
+      setTaskId(null)
+      setRetryCount(0)
+    }
+  }
+
   const handleUpload = async () => {
     if (!humanImage || !clothFile) {
       const error = 'Please select both images'
@@ -104,6 +136,7 @@ export default function GarmentPage() {
     }
 
     setUploading(true)
+    setError(null)
     const processStart = Date.now()
     logger.info('Starting try-on process')
 
@@ -167,22 +200,25 @@ export default function GarmentPage() {
         })
       })
 
-      if (!tryOnResponse.ok) {
-        const error = await tryOnResponse.json()
+      const result = await tryOnResponse.json()
+
+      if (tryOnResponse.status === 202 || result.status === "pending") {
+        logger.info('Try-on task pending', { taskId: result.task_id })
+        setTaskId(result.task_id)
+        checkTaskStatus(result.task_id)
+      } else if (!tryOnResponse.ok) {
         logger.error('Try-on API call failed', {
           status: tryOnResponse.status,
-          error
+          result
         })
-        throw new Error(error.message || 'Failed to generate try-on image')
+        throw new Error(result.message || 'Failed to generate try-on image')
+      } else {
+        setResultImageUrl(result.generated_image_url)
+        logger.info('Try-on process completed successfully', {
+          totalDuration: `${Date.now() - processStart}ms`,
+          resultUrl: result.generated_image_url
+        })
       }
-
-      const result = await tryOnResponse.json()
-      setResultImageUrl(result.generated_image_url)
-
-      logger.info('Try-on process completed successfully', {
-        totalDuration: `${Date.now() - processStart}ms`,
-        resultUrl: result.generated_image_url
-      })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to process images'
       logger.error('Try-on process failed', {
@@ -191,7 +227,9 @@ export default function GarmentPage() {
       })
       setError(errorMessage)
     } finally {
-      setUploading(false)
+      if (!taskId) {
+        setUploading(false)
+      }
     }
   }
 
