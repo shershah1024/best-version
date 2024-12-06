@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { VirtualTryonAPI } from './virtualTryonApi'
 
+export const maxDuration = 300; // Maximum execution time in seconds
+
 // Zod schema for request validation
 const tryOnRequestSchema = z.object({
   human_image_url: z.string().url(),
